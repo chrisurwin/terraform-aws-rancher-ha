@@ -1,0 +1,38 @@
+#cloud-config
+write_files:
+- path: /var/lib/rancher/etc/server.conf
+  content: |
+    export CATTLE_HA_CLUSTER_SIZE=${scale_desired_size}
+    export CATTLE_HA_HOST_REGISTRATION_URL=${ha_registration_url}
+    export CATTLE_HA_CONTAINER_PREFIX=rancher-ha-
+    export CATTLE_DB_CATTLE_MYSQL_HOST=${database_address}
+    export CATTLE_DB_CATTLE_MYSQL_PORT=${database_port}
+    export CATTLE_DB_CATTLE_MYSQL_NAME=${database_name}
+    export CATTLE_DB_CATTLE_USERNAME=${database_username}
+    export CATTLE_DB_CATTLE_PASSWORD=${database_encrypted_password}
+    export CATTLE_HA_PORT_REDIS=6379
+    export CATTLE_HA_PORT_SWARM=2376
+    export CATTLE_HA_PORT_HTTP=80
+    export CATTLE_HA_PORT_HTTPS=443
+    export CATTLE_HA_PORT_PP_HTTP=81
+    export CATTLE_HA_PORT_PP_HTTPS=444
+    export CATTLE_HA_PORT_ZK_CLIENT=2181
+    export CATTLE_HA_PORT_ZK_QUORUM=2888
+    export CATTLE_HA_PORT_ZK_LEADER=3888
+    # Uncomment below to force HA enabled and not require one to set it in the UI
+    export CATTLE_HA_ENABLED=true
+- path: /var/lib/rancher/etc/server/encryption.key
+  content: ${encryption_key} 
+- path: /var/lib/rancher/etc/ssl/readme.txt
+  content: "ca.crt will be pulled into this dir"
+rancher:
+  services:
+    rancher-ha:
+      image: rancher/server
+      command: ha
+      restart: always
+      net: host
+      privileged: true
+      volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/rancher/etc:/var/lib/rancher/etc
