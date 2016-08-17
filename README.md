@@ -57,3 +57,4 @@ az2 = "eu-west-1b"
 
 az3 = "eu-west-1c"
 
+rancher_version = "rancher/server:v1.2.0-pre1"
