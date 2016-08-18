@@ -19,6 +19,8 @@ ami_id = "ami-xxxxxxx"
 
 instance_type = "t2.medium"
 
+database_instance_class = "db.t2.medium"
+
 key_name = "aws_ssh_key_name"
 
 rancher_ssl_cert = "certificate.crt"
@@ -47,6 +49,10 @@ scale_desired_size = "3"
 
 ha_registration_url = "https://www.yoururl.com"
 
+fqdn = "www.yoururl.com"
+
+zone_id = "hosted zone id for your domain"
+
 region = "eu-west-1"
 
 vpc_id = "vpc-xxx"
@@ -57,3 +63,4 @@ az2 = "eu-west-1b"
 
 az3 = "eu-west-1c"
 
+rancher_version = "rancher/server:v1.2.0-pre1"

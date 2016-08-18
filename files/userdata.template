@@ -1,38 +1,125 @@
 #cloud-config
 write_files:
-- path: /var/lib/rancher/etc/server.conf
-  content: |
-    export CATTLE_HA_CLUSTER_SIZE=${scale_desired_size}
-    export CATTLE_HA_HOST_REGISTRATION_URL=${ha_registration_url}
-    export CATTLE_HA_CONTAINER_PREFIX=rancher-ha-
-    export CATTLE_DB_CATTLE_MYSQL_HOST=${database_address}
-    export CATTLE_DB_CATTLE_MYSQL_PORT=${database_port}
-    export CATTLE_DB_CATTLE_MYSQL_NAME=${database_name}
-    export CATTLE_DB_CATTLE_USERNAME=${database_username}
-    export CATTLE_DB_CATTLE_PASSWORD=${database_encrypted_password}
-    export CATTLE_HA_PORT_REDIS=6379
-    export CATTLE_HA_PORT_SWARM=2376
-    export CATTLE_HA_PORT_HTTP=80
-    export CATTLE_HA_PORT_HTTPS=443
-    export CATTLE_HA_PORT_PP_HTTP=81
-    export CATTLE_HA_PORT_PP_HTTPS=444
-    export CATTLE_HA_PORT_ZK_CLIENT=2181
-    export CATTLE_HA_PORT_ZK_QUORUM=2888
-    export CATTLE_HA_PORT_ZK_LEADER=3888
-    # Uncomment below to force HA enabled and not require one to set it in the UI
-    export CATTLE_HA_ENABLED=true
-- path: /var/lib/rancher/etc/server/encryption.key
-  content: ${encryption_key} 
-- path: /var/lib/rancher/etc/ssl/readme.txt
-  content: "ca.crt will be pulled into this dir"
-rancher:
-  services:
-    rancher-ha:
-      image: rancher/server
-      command: ha
-      restart: always
-      net: host
-      privileged: true
-      volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /var/lib/rancher/etc:/var/lib/rancher/etc
+  - path: /var/lib/rancher/etc/server.conf
+    permissions: "0644"
+    content: |
+      export CATTLE_HA_CLUSTER_SIZE=${scale_desired_size}
+      export CATTLE_HA_HOST_REGISTRATION_URL=${ha_registration_url}
+      export CATTLE_HA_CONTAINER_PREFIX=rancher-ha-
+      export CATTLE_DB_CATTLE_MYSQL_HOST=${database_address}
+      export CATTLE_DB_CATTLE_MYSQL_PORT=${database_port}
+      export CATTLE_DB_CATTLE_MYSQL_NAME=${database_name}
+      export CATTLE_DB_CATTLE_USERNAME=${database_username}
+      export CATTLE_DB_CATTLE_PASSWORD=${database_encrypted_password}
+      export CATTLE_HA_PORT_REDIS=6379
+      export CATTLE_HA_PORT_SWARM=2376
+      export CATTLE_HA_PORT_HTTP=80
+      export CATTLE_HA_PORT_HTTPS=443
+      export CATTLE_HA_PORT_PP_HTTP=81
+      export CATTLE_HA_PORT_PP_HTTPS=444
+      export CATTLE_HA_PORT_ZK_CLIENT=2181
+      export CATTLE_HA_PORT_ZK_QUORUM=2888
+      export CATTLE_HA_PORT_ZK_LEADER=3888
+      # Uncomment below to force HA enabled and not require one to set it in the UI
+      export CATTLE_HA_ENABLED=true
+  - path: /var/lib/rancher/etc/server/encryption.key
+    permissions: "0644"
+    content: ${encryption_key}
+  - path: /var/lib/rancher/etc/ssl/readme.txt
+    permissions: "0644"
+    content: "ca.crt will be pulled into this dir."
+  - path: /opt/rancher/bin/rancher-ha.sh
+    permissions: "0770"
+    content: |
+      #!/bin/sh
+      set -e
+      umask 077
+
+      IMAGE=$1
+      if [ "$IMAGE" = "" ]; then
+        IMAGE=rancher/server
+      fi
+
+      mkdir -p /var/lib/rancher/etc/server
+      mkdir -p /var/lib/rancher/etc/ssl
+      mkdir -p /var/lib/rancher/bin
+
+      echo Creating /var/lib/rancher/etc/server.conf
+      cat > /var/lib/rancher/etc/server.conf << EOF
+      export CATTLE_HA_CLUSTER_SIZE=${scale_desired_size}
+      export CATTLE_HA_HOST_REGISTRATION_URL=${ha_registration_url}
+      export CATTLE_HA_CONTAINER_PREFIX=rancher-ha-
+
+      export CATTLE_DB_CATTLE_MYSQL_HOST=${database_address}
+      export CATTLE_DB_CATTLE_MYSQL_PORT=${database_port}
+      export CATTLE_DB_CATTLE_MYSQL_NAME=${database_name}
+      export CATTLE_DB_CATTLE_USERNAME=${database_username}
+      export CATTLE_DB_CATTLE_PASSWORD=${database_encrypted_password}
+
+      export CATTLE_HA_PORT_REDIS=6379
+      export CATTLE_HA_PORT_SWARM=2376
+      export CATTLE_HA_PORT_HTTP=80
+      export CATTLE_HA_PORT_HTTPS=443
+      export CATTLE_HA_PORT_PP_HTTP=81
+      export CATTLE_HA_PORT_PP_HTTPS=444
+      export CATTLE_HA_PORT_ZK_CLIENT=2181
+      export CATTLE_HA_PORT_ZK_QUORUM=2888
+      export CATTLE_HA_PORT_ZK_LEADER=3888
+
+      # Uncomment below to force HA enabled and not require one to set it in the UI
+      export CATTLE_HA_ENABLED=true
+      EOF
+
+
+
+
+      echo Creating /var/lib/rancher/etc/server/encryption.key
+      if [ -e /var/lib/rancher/etc/server/encryption.key ]; then
+        mv /var/lib/rancher/etc/server/encryption.key /var/lib/rancher/etc/server/encryption.key.`date '+%s'`
+      fi
+      cat > /var/lib/rancher/etc/server/encryption.key << EOF
+      ${encryption_key}
+      EOF
+
+
+      echo Creating /var/lib/rancher/bin/rancher-ha-start.sh
+      cat > /var/lib/rancher/bin/rancher-ha-start.sh << "EOF"
+      #!/bin/sh
+      set -e
+
+      IMAGE=$1
+      if [ "$IMAGE" = "" ]; then
+        echo Usage: $0 DOCKER_IMAGE
+        exit 1
+      fi
+
+      docker rm -fv rancher-ha >/dev/null 2>&1 || true
+      ID=`docker run --restart=always -d -v /var/run/docker.sock:/var/run/docker.sock --name rancher-ha --net host --privileged -v /var/lib/rancher/etc:/var/lib/rancher/etc $IMAGE ha`
+
+      echo Started container rancher-ha $ID
+      echo Run the below to see the logs
+      echo
+      echo docker logs -f rancher-ha
+      EOF
+
+      chmod +x /var/lib/rancher/bin/rancher-ha-start.sh
+
+      echo Running: /var/lib/rancher/bin/rancher-ha-start.sh $IMAGE
+      echo To re-run please execute: /var/lib/rancher/bin/rancher-ha-start.sh $IMAGE
+      exec /var/lib/rancher/bin/rancher-ha-start.sh $IMAGE
+  - path: /opt/rancher/bin/start.sh
+    permissions: "0770"
+    content: |
+      #!/bin/sh
+      cat > /opt/rancher/bin/kickoff.sh << EOF
+      #!/bin/bash
+      while ! docker version >/dev/null 2>&1; do echo 'waiting for docker...'; sleep 2; done
+      while ! ping -c 1 8.8.8.8 >/dev/null 2>&1; do echo 'waiting for net...'; sleep 2; done
+
+      sleep 5
+      sudo sh /opt/rancher/bin/rancher-ha.sh ${rancher_version}
+      while ! docker inspect rancher-ha-redis >/dev/null 2>&1; do echo 'waiting for rancher...'; sleep 2; done
+      docker run --rm imega/mysql-client mysql --host=${database_address} --user=${database_username} --password=Password --database=${database_name} --execute="insert into setting values (null,'ha.cluster.size','3'),(null,'ha.enabled','true');"
+      EOF
+      sudo chmod +x /opt/rancher/bin/kickoff.sh
+      sudo sh /opt/rancher/bin/kickoff.sh &
