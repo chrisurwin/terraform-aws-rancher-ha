@@ -297,8 +297,8 @@ resource "aws_elb" "rancher_ha" {
     healthy_threshold = 2
     unhealthy_threshold = 4
     timeout = 5
-    target = "TCP:22"
-    #target = "HTTP:80/ping"
+    #target = "TCP:22"
+    target = "HTTP:80/ping"
     interval = 7
   }
 
