@@ -264,8 +264,9 @@ resource "template_file" "user_data" {
         database_encrypted_password = "${var.database_encrypted_password}"
         ha_registration_url = "${var.ha_registration_url}"
         scale_desired_size = "${var.scale_desired_size}"
-           #Rancher HA encryption key
-           encryption_key    = "${var.ha_encryption_key}"
+        rancher_version = "${var.rancher_version}"
+        #Rancher HA encryption key
+        encryption_key    = "${var.ha_encryption_key}"
     }
 
     lifecycle {
